@@ -1,158 +1,228 @@
-<!doctype html>
-<html lang=en>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <meta name="description" content="">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href='/stylesheets/bootstrap.min.css' rel='stylesheet' type="text/css">
-  <link href='/stylesheets/bootstrap-responsive.min.css' rel='stylesheet' type="text/css">
-  <link href='/stylesheets/rickshaw.css' rel='stylesheet' type='text/css'>
-  <link href='/stylesheets/jquery.ui.slider.css' rel='stylesheet' type='text/css'>
-  <link href='/stylesheets/style.css' rel='stylesheet' type="text/css">
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Reddit Shit</title>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://code.jquery.com/jquery-1.8.3.min.js" type="text/javascript" charset="utf-8"></script>
+  <script src="jquery.tipsy.js" type="text/javascript" charset="utf-8"></script>
+  <link rel="stylesheet" href="http://onehackoranother.com/projects/jquery/tipsy/stylesheets/tipsy.css" type="text/css" title="no title" charset="utf-8"/>
 
-  <title>Reddit Insight</title>
+<style type="text/css">
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+    opacity: 1;
+  }
 
+  .axis text { font-size:12px; }
+
+  body { font: 12px sans-serif; }
+  
+  .circles { opacity: .5; }
+
+  .tipsy { font-size:11px; margin-top:-10px;}
+
+  .guide line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+    opacity: 0;
+  }
+
+</style>
 </head>
 <body>
+<div id="chart">
 
-<header></header>
+<script type="text/javascript">
+  // set the stage
+  var margin = {t:30, r:20, b:20, l:40 },
+    w = window.innerWidth - margin.l - margin.r,
+    h = window.innerHeight - margin.t - margin.b,
+    x = d3.scale.linear().range([0, w]),
+    y = d3.scale.linear().range([h - 60, 0]),
+    //colors that will reflect geographical regions
+    color = d3.scale.category10();
 
-<div class="container-fluid">
-  <section id="trackpost"></section>
-  <section id="trackuser"></section>
-  <section id="login"></section>
-  <section id="dashboard"></section>
-  <section id="index"></section>
+  var svg = d3.select("#chart").append("svg")
+    .attr("width", w + margin.l + margin.r)
+    .attr("height", h + margin.t + margin.b);
+
+  // set axes, as well as details on their ticks
+  var xAxis = d3.svg.axis()
+    .scale(x)
+    .ticks(20)
+    .tickSubdivide(true)
+    .tickSize(6, 3, 0)
+    .orient("bottom");
+
+  var yAxis = d3.svg.axis()
+    .scale(y)
+    .ticks(20)
+    .tickSubdivide(true)
+    .tickSize(6, 3, 0)
+    .orient("left");
+
+  // group that will contain all of the plots
+  var groups = svg.append("g").attr("transform", "translate(" + margin.l + "," + margin.t + ")");
+
+  // array of the regions, used for the legend
+  var regions = ["Video", "Picture", "Text", "Turtles"]
+
+
+// bring in the data, and do everything that is data-driven
+d3.csv("redditagain.csv", function(data) {
+
+  // sort data alphabetically by region, so that the colors match with legend
+  //data.sort(function(a, b) { return d3.ascending(a.region, b.region); })
+  console.log(data)
+
+  var x0 = Math.max(-d3.min(data, function(d) { return d.total_karma; }), d3.max(data, function(d) { return d.total_karma; }));
+  x.domain([0, 100]);
+  y.domain([0, 1000])
+
+  // style the circles, set their locations based on data
+  var circles =
+  groups.selectAll("circle")
+    .data(data)
+    .enter().append("circle")
+    .attr("class", "circles")
+    .attr({
+      cx: function(d) { return x(+d.total_karma); },
+      cy: function(d) { return y(+d.comments); },
+      r: 30,
+      id: function(d) { return d.subreddit; }
+    })
+    .style("fill", function(d) { return color(d.region); });
+
+  // what to do when we mouse over a bubble
+  var mouseOn = function() { 
+    var circle = d3.select(this);
+
+  // transition to increase size/opacity of bubble
+    circle.transition()
+    .duration(800).style("opacity", 1)
+    .attr("r", 16).ease("elastic");
+
+    // append lines to bubbles that will be used to show the precise data points.
+    // translate their location based on margins
+    svg.append("g")
+      .attr("class", "guide")
+    .append("line")
+      .attr("x1", circle.attr("cx"))
+      .attr("x2", circle.attr("cx"))
+      .attr("y1", +circle.attr("cy") + 26)
+      .attr("y2", h - margin.t - margin.b)
+      .attr("transform", "translate(40,20)")
+      .style("stroke", circle.style("fill"))
+      .transition().delay(200).duration(400).styleTween("opacity", 
+            function() { return d3.interpolate(0, .5); })
+
+    svg.append("g")
+      .attr("class", "guide")
+    .append("line")
+      .attr("x1", +circle.attr("cx") - 16)
+      .attr("x2", 0)
+      .attr("y1", circle.attr("cy"))
+      .attr("y2", circle.attr("cy"))
+      .attr("transform", "translate(40,30)")
+      .style("stroke", circle.style("fill"))
+      .transition().delay(200).duration(400).styleTween("opacity", 
+            function() { return d3.interpolate(0, .5); });
+
+  // function to move mouseover item to front of SVG stage, in case
+  // another bubble overlaps it
+    d3.selection.prototype.moveToFront = function() { 
+      return this.each(function() { 
+      this.parentNode.appendChild(this); 
+      }); 
+    };
+
+  // skip this functionality for IE9, which doesn't like it
+    if (!$.browser.msie) {
+      circle.moveToFront(); 
+      }
+  };
+  // what happens when we leave a bubble?
+  var mouseOff = function() {
+    var circle = d3.select(this);
+
+    // go back to original size and opacity
+    circle.transition()
+    .duration(800).style("opacity", .5)
+    .attr("r", 2000).ease("elastic");
+
+    // fade out guide lines, then remove them
+    d3.selectAll(".guide").transition().duration(100).styleTween("opacity", 
+            function() { return d3.interpolate(.5, 0); })
+      .remove()
+  };
+
+  // run the mouseon/out functions
+  circles.on("mouseover", mouseOn);
+  circles.on("mouseout", mouseOff);
+
+  // tooltips (using jQuery plugin tipsy)
+  circles.append("title")
+      .text(function(d) { return d.subreddit; })
+
+  $(".circles").tipsy({ gravity: 's', });
+
+  // the legend color guide
+  var legend = svg.selectAll("rect")
+      .data(regions)
+    .enter().append("rect")
+    .attr({
+      x: function(d, i) { return (40 + i*80); },
+      y: h,
+      width: 25,
+      height: 12
+    })
+    .style("fill", function(d) { return color(d); });
+
+
+  // legend labels  
+    svg.selectAll("text")
+      .data(regions)
+    .enter().append("text")
+    .attr({
+    x: function(d, i) { return (40 + i*80); },
+    y: h + 24,
+    })
+    .text(function(d) { return d; });
+
+  // draw axes and axis labels
+  svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(" + margin.l + "," + (h - 60 + margin.t) + ")")
+    .call(xAxis);
+
+  svg.append("g")
+    .attr("class", "y axis")
+    .attr("transform", "translate(" + margin.l + "," + margin.t + ")")
+    .call(yAxis);
+
+  svg.append("text")
+    .attr("class", "x label")
+    .attr("text-anchor", "end")
+    .attr("x", w + 50)
+    .attr("y", h - margin.t - 5)
+    .text("Karma");
+
+  svg.append("text")
+    .attr("class", "y label")
+    .attr("text-anchor", "end")
+    .attr("x", -20)
+    .attr("y", 45)
+    .attr("dy", ".75em")
+    .attr("transform", "rotate(-90)")
+    .text("Comments");
+  });
+
+</script>
+
 </div>
-
-<footer></footer>
-
 </body>
-<script id="dashboard-template" type="text/x-handlebars-template">
-    <div id="chart_container">
-        <div id="y_axis"></div>
-        <div id="chart"></div>
-        <div id="legend"></div>
-        <form id="offset_form" class="toggler">
-                <input type="radio" name="offset" id="lines" value="lines" checked>
-                <label class="lines" for="lines">lines</label><br>
-                <input type="radio" name="offset" id="stack" value="zero">
-                <label class="stack" for="stack">stack</label>
-        </form>
-        <div id="slider" class="ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all">
-          <div class="ui-slider-range ui-widget-header"></div>
-          <a class="ui-slider-handle ui-state-default ui-corner-all" href="#"></a>
-          <a class="ui-slider-handle ui-state-default ui-corner-all" href="#"></a>
-        </div>
-    </div>
-</script>
-
-<script id="nav-template" type="text/x-handlebars-template">
-  <div class="navbar">
-    <div class="navbar-inner">
-      <div class="container" style="width: auto;">
-        <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-          <span class="icon-bar"></span>
-        </a>
-        <a class="brand" href="">Reddit Insight</a>
-        <div class="nav-collapse">
-          <ul class="nav">
-            <li class=""><a href="#/">Home</a></li>
-            <li class=""><a href="#/trackpost">Track Post</a></li>
-            <li class=""><a href="#/trackuser">Track User</a></li>
-          </ul>
-          <ul class="nav pull-right">
-            <li class="divider-vertical"></li>
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown"><i class="icon-user"></i>User<b class="caret"></b></a>
-              <ul class="dropdown-menu">
-                <li><a href="#">Settings</a></li>
-                <li><a href="#">Logout</a></li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</script>
-
-<script id="login-template" type="text/x-handlebars-template">
-  <div>
-    yolo
-  </div>
-</script>
-
-<script id="track-post-template" type="text/x-handlebars-template">
-  <div>
-    <h2>Track Post View</h2>
-    <form>
-      <label for="tracking-url">Tracking URL</label>
-      <input id="tracking-url" type="text" value="http://" autofocus>
-    </form>
-    <a href="{{ url }}"><img src="{{ thumbnail }}" target="_blank"></a> <a href="http://www.reddit.com{{ permalink }}" target="_blank"><h4 style="display:inline">{{ title }}</h4></a>
-    <br>
-    Author: <h4 style="display:inline">{{ author }}</h4>
-    <br>
-    Score: <h4 style="display:inline">{{ score }}</h4>
-    <br>
-    <i class="icon-arrow-up"></i>: <h4 style="display:inline">{{ ups }}</h4>
-    <br>
-    <i class="icon-arrow-down"></i>: <h4 style="display:inline">{{ downs }}</h4>
-    <br>
-    Comments: <h4 style="display:inline">{{ num_comments }}</h4>
-  </div>
-</script>
-
-<script id="track-user-template" type="text/x-handlebars-template">
-  <div>
-    <h2>Track User View</h2>
-    <form>
-      <label for="tracking-username">Track Username</label>
-      <input id="tracking-username" type="text" value="" autofocus>
-    </form>
-  </div>
-</script>
-
-<script src='/lib/jquery-2.0.2.js'></script>
-<script src='/lib/bootstrap.min.js'></script>
-<script src='/lib/underscore.js'></script>
-<script src='/lib/handlebars.js'></script>
-<script src='/lib/backbone-min.js'></script>
-<script src='/lib/backbone-oauth.js'></script>
-<script src='/lib/backbone-jsonp.js'></script>
-<script arc='/lib/jquery.ui.slider.js'></script>
-<script src='/lib/d3.min.js'></script>
-<script src='/lib/rickshaw.js'></script>
-
-<script src='/redd.js'></script>
-
-<script src='/models/trackpost_model.js'></script>
-<script src='/models/trackuser_model.js'></script>
-
-<script src='/collections/posts.js'></script>
-
-<script src='/templates/template.js'></script>
-
-<script src='/views/login_view.js'></script>
-<script src='/views/post_view.js'></script>
-<script src='/views/navbar_view.js'></script>
-<script src='/views/dashboard_view.js'></script>
-<script src='/views/index_view.js'></script>
-<script src='/views/trackpost_view.js'></script>
-<script src='/views/trackuser_view.js'></script>
-
-<script src='/redd_d3.js'></script>
-<script src='/redd_controller.js'></script>
-<script src='/router.js'></script>
-
-<script>
-  Redd.initialize();
-</script>
-
-
-
 </html>

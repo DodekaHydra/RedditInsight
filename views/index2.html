@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<link href="../src/nv.d3.css" rel="stylesheet" type="text/css">
+<script src="http://underscorejs.org/underscore.js"></script>
+<style>
+
+body {
+  overflow-y:scroll;
+  margin: 0;
+  padding: 0;
+}
+
+svg {
+  overflow: hidden;
+}
+
+div {
+  border: 0;
+  margin: 0;
+}
+
+/*
+#offsetDiv {
+  margin-left: 100px;
+  margin-top: 100px;
+}
+*/
+
+
+#test1 {
+  margin: 0;
+}
+
+#test1 svg {
+  height: 500px;
+}
+
+</style>
+
+<body>
+
+<div id="offsetDiv">
+  <div id="test1" class="chartWrap">
+    <svg></svg>
+  </div>
+</div>
+
+<script src="../lib/d3.v3.js"></script>
+<!--<script src="../lib/fisheye.js"></script>-->
+<script src="../nv.d3.js"></script>
+<script src="../src/tooltip.js"></script>
+<script src="../src/utils.js"></script>
+<script src="../src/models/legend.js"></script>
+<script src="../src/models/axis.js"></script>
+<script src="../src/models/distribution.js"></script>
+<script src="../src/models/scatter.js"></script>
+<script src="../src/models/scatterChart.js"></script>
+<script>
+
+
+
+//Format A
+var chart;
+debugger;
+nv.addGraph(function() {
+  debugger;
+  //debugger;
+  chart = nv.models.scatterChart()
+                .showDistX(true)
+                .showDistY(true)
+                //.height(500)
+                .useVoronoi(true)
+                .color(d3.scale.category10().range());
+
+  chart.xAxis.tickFormat(d3.format('.02f'))
+  chart.yAxis.tickFormat(d3.format('.02f'))
+  //var test = [];
+  d3.csv("reddit.csv", function(d) {
+    return {
+      subreddit: d.subreddit,
+      karma: +d.karma,
+      comments: +d.comments
+    };
+  }, function(error, rows) {
+    console.log(rows);
+    redditData(1, rows);
+  });
+  var test = [];
+  d3.select('#test1 svg')
+      .datum(redditData(1, test))
+      .transition().duration(500)
+      .call(chart);
+
+  nv.utils.windowResize(chart.update);
+
+  chart.dispatch.on('stateChange', function(e) { ('New State:', JSON.stringify(e)); });
+
+  return chart;
+});
+
+
+// function randomData(groups, points) { //# groups,# points per group
+//   var data = [],
+//       shapes = ['circle', 'cross', 'triangle-up', 'triangle-down', 'diamond', 'square'],
+//       random = d3.random.normal();
+
+//   for (i = 0; i < groups; i++) {
+//     data.push({
+//       key: 'Group ' + i,
+//       values: []
+//     });
+
+//     for (j = 0; j < points; j++) {
+//       data[i].values.push({
+//         x: random(),
+//         y: random(),
+//         size: Math.random(),
+//         shape: shapes[j % 6]
+//       });
+//     }
+//   }
+
+//   return data;
+// }
+
+function redditData(groups, entries) { //# groups,# points per group
+  console.log("entries", entries);
+  var data = [],
+  shapes = ['circle', 'cross', 'triangle-up', 'triangle-down', 'diamond', 'square'];
+  for (j = 0; j < groups; j++) {
+    data.push({
+      key: 'Group ' + j,
+      values: []
+    });
+    debugger;
+    var vals = _.size(entries);
+    for (var i = 0; i < vals; i++) {
+      data[j].values.push({
+        x: entries[i].karma,
+        y: entries[i].comments,
+        name: entries[i].subreddit,
+        size: Math.random(),
+        shape: shapes[i % 6]
+      });
+    }
+  }
+  return data;
+}
+
+
+
+</script>
